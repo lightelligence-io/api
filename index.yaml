@@ -1733,6 +1733,7 @@ components:
           type: string
           maxLength: 255
           nullable: false
+          pattern: '^([a-zA-Z0-9_]+)$'
         firmwareId:
           description: Device firmware UUID
           type: string
@@ -4451,8 +4452,8 @@ components:
               type: string
               description: >-
                 A recipient of the notification, i.e. e-mail address. It is
-                possible to specify multiple recipients up to 10 recipients as a
-                comma separated list
+                possible to specify multiple recipients up to 100 recipients as
+                a comma separated list
               example: alert@email.me
             notificationTopic:
               type: string
