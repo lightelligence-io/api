@@ -7397,7 +7397,8 @@ paths:
           name: tenant
           description: >
             Set the `tenant` the token should be valid for. This header is only
-            supported when the `grant_type` is set to `refresh_token`.
+            supported when the `grant_type` is set to either `refresh_token` or
+            `client_credentials`.
           schema:
             type: string
             format: uuid
