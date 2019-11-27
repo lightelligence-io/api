@@ -1495,8 +1495,8 @@ components:
               reportTo:
                 type: array
                 description: >-
-                  Which services to report the value to. Values being reported
-                  to the `flow` service have to be numerical.
+                  Which services to report the value to. Values have to be
+                  scalar.
                 items:
                   type: string
                   enum:
@@ -3306,6 +3306,7 @@ components:
         - &ref_71
           type: object
           description: A data message from a device.
+          additionalProperties: false
           required:
             - senderId
             - deviceId
@@ -3356,6 +3357,7 @@ components:
         - &ref_72
           type: object
           description: A data message from a device identified by an alias.
+          additionalProperties: false
           required:
             - senderId
             - alias
@@ -4463,6 +4465,13 @@ components:
                     type: string
                     description: The event type
                     example: maintenance
+                ruleId:
+                  type: string
+                  format: uuid
+                  description: >-
+                    An optional rule id, if given - notification will be
+                    triggered only for events with this ruleId
+                  example: 3064e3d7-79ba-4003-b9db-f03b43deecdd
             deviceFilter:
               type: object
               description: >-
@@ -4615,7 +4624,7 @@ components:
               description: Optional event payload
     RuleBasic: &ref_122
       type: object
-      description: >-
+      description: >
         A rule for a list of `paths`, filtered by a `deviceFilter`, that will be
         aggregated and compared against a predefined `constant`. If the
         `constant` threshold is met during a provided `duration`, an `event`
@@ -4635,13 +4644,15 @@ components:
             type: string
             description: >
               JSON Path for the attribute or configuration key the data is from.
-              Should contain numerical values only.
+              Should contain scalar values only.
             example: $.configuration.brightness
             pattern: ^(\$\.configuration\.|\$\.attributes\.)
         aggregation:
           description: >
             Aggregation algorithm to be used for the gathered data within the
-            specified `duration` per device and path
+            specified `duration` per device and path. If it is specified,
+            `duration` also has to be set. If `constant` is of non-numeric type,
+            `aggregation` and `duration` are not supported.
           type: string
           enum:
             - min
@@ -4652,10 +4663,12 @@ components:
             - diff
             - first
             - last
+          nullable: true
         comparator:
           description: >
             The comparator to be used when comparing aggregated, reported data
-            points with the specified `constant`
+            points with the specified `constant` If constant is of non-numeric
+            type, only `eq` and `neq` are supported.
           type: string
           enum:
             - gt
@@ -4666,10 +4679,16 @@ components:
             - neq
         constant:
           description: >
-            The number to which the aggregate is compared to, using the
-            comparator
-          type: number
-          example: 36.6
+            The value to which the aggregate is compared to, using the
+            comparator. If the value is non-numeric, only `eq` and `neq`
+            comparators are supported.
+          anyOf:
+            - type: boolean
+              example: true
+            - type: number
+              example: 36.6
+            - type: string
+              example: critical
         active:
           description: >-
             Whether a rule should be executed and trigger events. `true` by
@@ -4677,27 +4696,48 @@ components:
           type: boolean
           default: true
         duration:
-          description: Aggregation period in seconds
+          description: >
+            Aggregation period in seconds. If it is specified, `aggregation`
+            also has to be set. If `constant` is of non-numeric type,
+            `aggregation` and `duration` are not supported.
           type: number
           minimum: 60
           maximum: 86400
           example: 3600
+          nullable: true
         triggerInterval:
           description: >-
             Minimum time between triggered events (per device and path) in
-            seconds
+            seconds.
           type: number
-          minimum: 0
+          minimum: 1
           maximum: 86400
           example: 10
+        triggerRepeating:
+          description: >
+            Whether a rule can trigger more than once without leaving the
+            trigger condition. `true` by default.
+          type: boolean
+          default: true
         event:
           description: >
             Name of the event triggered by the rule engine, if the event is not
             supported by the type of the matching device, the resulting event
-            will be dropped.
+            will be dropped. The event will be sent with an empty payload, so
+            the device type event schema should not require or define any
+            properties.
           type: string
           maxLength: 255
-          example: overheated
+          example: alert
+          pattern: '^([a-zA-Z0-9_]+)$'
+        exitEvent:
+          description: >
+            Name of the event triggered by the rule engine when the rule is
+            leaving the trigger condition. If the event is not supported by the
+            type of the matching device, the resulting event will be dropped.
+          type: string
+          maxLength: 255
+          example: normalized
           pattern: '^([a-zA-Z0-9_]+)$'
         deviceFilter: *ref_121
     RuleCreate: &ref_361
@@ -4709,10 +4749,8 @@ components:
             - name
             - deviceFilter
             - paths
-            - aggregation
             - comparator
             - constant
-            - duration
             - triggerInterval
             - event
     RuleRead: &ref_362
@@ -4722,14 +4760,14 @@ components:
         - id
         - createdAt
         - updatedAt
+        - active
         - name
         - deviceFilter
         - paths
-        - aggregation
         - comparator
         - constant
-        - duration
         - triggerInterval
+        - triggerRepeating
         - event
       additionalProperties: false
       properties:
@@ -4761,6 +4799,7 @@ components:
         - deviceId
         - path
         - value
+        - event
       properties:
         deviceId:
           description: The device UUID.
@@ -4772,15 +4811,26 @@ components:
           pattern: ^(\$\.configuration\.|\$\.attributes\.)
           description: JSON Path for the attribute or configuration.
           example: $.configuration.brightness
+        event:
+          description: Name of the (exit) event that the rule is executed with.
+          type: string
+          maxLength: 255
+          example: alert
+          pattern: '^([a-zA-Z0-9_]+)$'
         value:
-          type: number
-          description: The aggregated value that the rule is executed with.
-          example: 123.45
+          description: The (aggregated) scalar value that the rule is executed with.
+          anyOf:
+            - type: number
+              example: 36.6
+            - type: string
+              example: critical
+            - type: boolean
+              example: true
         lastExecutedAt:
           type: string
           format: date-time
           description: The date when the rule was executed
-          example: 2019-07-09T12:21:37.694Z
+          example: '2019-07-09T12:21:37.694Z'
     AuditLog: &ref_123
       type: object
       additionalProperties: false
@@ -7024,6 +7074,8 @@ paths:
         - roles-and-permissions
       x-olt-permissions:
         - 'tenant_user_management:write'
+      x-olt-transitive-permissions:
+        - 'applications:read'
       requestBody:
         content:
           application/json:
@@ -7251,40 +7303,6 @@ paths:
         '401': *ref_153
         '403': *ref_154
         '404': *ref_174
-        '500': *ref_156
-  '/tenants/{tenantId}/users/{userId}/permissions':
-    get:
-      deprecated: true
-      summary: List user permissions
-      description: >
-        **DEPRECATED: As a user to get your personal permissions, please use
-        [_GET
-        /users/{userId}/permissions_](#tag/users/paths/~1users~1{userId}~1permissions/get)
-        instead.**<br /> Get the list of permissions for the user of the tenant.
-      tags:
-        - user-management
-      x-olt-permissions: []
-      parameters:
-        - *ref_150
-        - *ref_169
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required:
-                  - data
-                properties:
-                  data:
-                    type: array
-                    items: *ref_14
-        '400': *ref_152
-        '401': *ref_153
-        '403': *ref_154
-        '404': *ref_155
         '500': *ref_156
   /id/auth/realms/olt:
     get:
@@ -9593,6 +9611,7 @@ paths:
             application/json:
               schema: &ref_319
                 type: object
+                additionalProperties: false
                 required:
                   - statusCode
                   - message
@@ -10736,16 +10755,27 @@ paths:
         threshold is met during a provided `duration`, an `event` will be
         triggered, but no more than once every `triggerInterval` seconds per
         device and path. Rules are `active` by default, otherwise they won't be
-        processed or trigger events.
+        processed or trigger events. If a rule has `triggerRepeating` set to
+        `false`, it has to leave the trigger condition before it can trigger
+        again. In either case there will be at least a `triggerInterval` seconds
+        pause before it is able to trigger again. If a rule has an `exitEvent`,
+        that event will be triggered once when the rule leaves the trigger
+        condition.
 
         NOTE:
+          - **The specified `path` must have a reporting rule to `flow` on the `device-type`.** Otherwise, no incoming data
+            points would be routed to the rule-engine and the rule would not get executed at all.
           - No checks are made about the datatype of the specified `paths` at the rule creation time,
             if the path does not contain a numeric value for a device, it will be ignored,
             corresponding message will be sent to device-diagnostics.
-          - No checks are made about the existence of the specified `event` at the rule creation time.
-            If the event is not specified in the device type spec of a matching device,
+          - No checks are made about the existence of the specified `event` and `exitEvent` at rule creation time.
+            If any of the events are not specified in the device type spec of a matching device,
             the resulting event will be rejected and a corresponding message will be sent to `device-diagnostics`.
-          - The specified `path` must have a reporting rule to `flow` on the `device-type`
+          - The event will be triggered without any payload, so it must not have any properties in its schema definition
+            of the device type.
+          - If `event` or `exitEvent` is "ruleTriggerStart" or "ruleTriggerEnd", the corresponding device events, produced
+            by the Rule Engine, will not go through enrichment service and will not be validated against the device schema,
+            also the resulting events will include `ruleId`, so they can be directly targeted by the notification service
       x-olt-permissions:
         - 'rule_engine_data:write'
       requestBody:
