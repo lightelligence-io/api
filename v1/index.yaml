@@ -5143,6 +5143,14 @@ components:
       in: path
       required: true
       schema: *ref_39
+    UserIdOrEmailInPath:
+      name: userIdOrEmail
+      in: path
+      required: true
+      description: Either a user id or an email
+      schema:
+        type: string
+        description: The id or the email of the user
     TenantIdInPath: &ref_342
       name: tenantId
       in: path
