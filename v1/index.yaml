@@ -5902,8 +5902,8 @@ tags:
   - name: oauth
   - name: roles-and-permissions
     description: >
-      **To interact with the API of OLT**, the user needs to have the right set
-      of permissions. Using these permissions, a tenant can limit what actions a
+      To interact with the API of OLT, a user needs to have the correct set of
+      permissions. Using these permissions, a tenant can limit what actions a
       user can access within the Lightelligence Platform.
   - name: streaming
     description: streaming related endpoints
@@ -5920,6 +5920,11 @@ tags:
       reportingRule in the Device Type of a Device with the value timeseries is
       needed.
   - name: user-management
+    description: >
+      User management is done within the context of a tenant. Here you can
+      define which user has access to which tenant, by assigning or revoking
+      roles. It's also possible to invite users that aren't registered with OLT
+      yet by email.
   - name: users
     description: >-
       The User object represents the data of a human being interacting with the
@@ -6074,8 +6079,7 @@ paths:
         '404': &ref_157
           description: >-
             This response means you either do not have access to a specified
-            resource or it does not even exist. The difference will not be
-            exposed to the user to make iterating that much harder.
+            resource or it does not even exist.
           content:
             application/json:
               schema: *ref_142
